@@ -70,33 +70,39 @@ def projection_matrix(camera_parameters, homography):
 # Our program class based on pyglet window class
 class Window(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
+        capture = kwargs['capture']
+        try:
+            del kwargs['capture']
+        except KeyError:
+            pass
         super(Window, self).__init__(*args, **kwargs)
         self.batch = pyglet.graphics.Batch()
-        self.capture = cv2.VideoCapture(0)
 
-        self.width = 0
-        self.height = 0
+        self.capture = capture
+
+        #self.width = 0
+        #self.height = 0
         #self.meshes = pywavefront.Wavefront('14079_WWII_Tank_UK_Cromwell_v1_L2.obj')
 
-        if self.capture.isOpened():
+        #if self.capture.isOpened():
             # get capture property
-            self.width = int(self.capture.get(3))   # float
-            self.height = int(self.capture.get(4)) # float
-            print ("size : ",self.width," ",self.height)
+        #    self.width = int(self.capture.get(3))   # float
+        #    self.height = int(self.capture.get(4)) # float
+        #    print ("size : ",self.width," ",self.height)
 
         self.data = []
         self.projection_matrix = None
 
         # matrix of camera parameters (made up but works quite well for me)
-        self.camera_parameters = np.array([[800, 0, 320], [0, 800, 240], [0, 0, 1]])
-        
+        self.camera_parameters = np.array([[800, 0, self.width/2.0], [0, 800, self.height/2.0], [0, 0, 1]])
+
         orb = cv2.ORB_create()
 
         dir_name = os.getcwd()
         with open('../data.csv') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-               
+
                 tmp_data = {'reference_kp':None,'reference_des':None,'reference':cv2.imread(os.path.join(dir_name, row['reference']), 0),'reference_name':row['reference'],'model':pywavefront.Wavefront(row['model']),'model_name':row['model']}
                 kp, des = orb.detectAndCompute(tmp_data['reference'],None)
                 tmp_data['reference_des'] = des
@@ -108,7 +114,7 @@ class Window(pyglet.window.Window):
         self.rvec = []
         self.tvec = []
         self.model = None
-        
+
     def on_draw(self):
         #self.get_capture()
 
@@ -118,7 +124,7 @@ class Window(pyglet.window.Window):
         if self.sprite != None:
             glMatrixMode(GL_PROJECTION)
             glLoadIdentity()
-            glOrtho(0, 640, 0, 480, -1, 1)
+            glOrtho(0, self.width, 0, self.height, -1, 1)
             glMatrixMode(GL_MODELVIEW)
             glLoadIdentity()
             self.batch.draw()
@@ -155,7 +161,13 @@ class Window(pyglet.window.Window):
             global visualization
             visualization.draw(self.model)
 
+    def update_capture(self):
+        ret, frame = self.capture.read()
+        self.sprite = pyglet.sprite.Sprite(cv2glet(frame), batch=self.batch)
+
     def update_ar(self):
+
+        #self.model = None
         ret, frame = self.capture.read()
 
         homography = None
@@ -185,7 +197,7 @@ class Window(pyglet.window.Window):
 
         if suitor != None:
             matches = suitor_matches
-            self.model = suitor['model']
+
             # differenciate between source points and destination points
 
             try:
@@ -201,14 +213,41 @@ class Window(pyglet.window.Window):
                 pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
                     # project corners into frame
                 dst = cv2.perspectiveTransform(pts, homography)
+
+                #print(dst)
+
+                AB = [dst[0][0][0]-dst[1][0][0],dst[0][0][1]-dst[1][0][1]]
+                CD = [dst[2][0][0]-dst[3][0][0],dst[2][0][1]-dst[3][0][1]]
+
+                AD = [dst[0][0][0]-dst[3][0][0],dst[0][0][1]-dst[3][0][1]]
+                BC = [dst[1][0][0]-dst[2][0][0],dst[1][0][1]-dst[2][0][1]]
+
+                ABl = math.sqrt(AB[0]*AB[0]+AB[1]*AB[1])
+                CDl = math.sqrt(CD[0]*CD[0]+CD[1]*CD[1])
+                ADl = math.sqrt(AD[0]*AD[0]+AD[1]*AD[1])
+                BCl = math.sqrt(BC[0]*BC[0]+BC[1]*BC[1])
+
+
+                print(AB,'_____',CD)
+
                 frame = cv2.polylines(frame, [np.int32(dst)], True, 255, 3, cv2.LINE_AA)
+
+                tol = 1.0
+
+                #if AB[0] >= CD[0] - tol and AB[0] <= CD[0] + tol and AB[1] >= CD[1] - tol and AB[1] <= CD[1] + tol and AD[0] >= BC[0] - tol and AD[0] <= BC[0] + tol and AD[1] >= BC[1] - tol and AD[1] <= BC[1] + tol:
+                #    if ABl >= CDl - tol/2.0 and ABl <= CDl + tol/2.0 and ADl >= BCl - tol/2.0 and ADl <= BCl + tol/2.0:
+
+
+                self.model = suitor['model']
+
+
 
                 Dpts= np.float32([[0,0,0],[0,h-1,0],[w-1,h-1,0],[w-1,0,0]]);
 
                 retval, self.rvec, self.tvec = cv2.solvePnP(Dpts,dst,self.camera_parameters,None)
 
-                #print(suitor['reference_name'])
-                #print(self.rvec,'--', self.tvec)
+                        #print(suitor['reference_name'])
+                        #print(self.rvec,'--', self.tvec)
 
             except:
                 pass
@@ -217,6 +256,7 @@ class Window(pyglet.window.Window):
 
         else:
             print ("Not enough matches found")
+
         self.sprite = pyglet.sprite.Sprite(cv2glet(frame), batch=self.batch)
 
 tdt = 0
@@ -228,16 +268,30 @@ rotation = 0
 
 def update(dt):
     global window
+    global tdt
+    tdt += dt
+    #window.update_capture()
+
+    #if tdt*1000.0 > 1000.0/60.0:
     window.update_ar()
+    tdt = 0
 
 
 
 
 def main():
     global window
-    window = Window(width=640, height=480, caption='Pyglet')
-    pyglet.clock.schedule(update)
-    pyglet.app.run()
+    capture = cv2.VideoCapture(0)
+    if capture.isOpened():
+        # get capture property
+        width = int(capture.get(3))   # float
+        height = int(capture.get(4)) # float
+        print ("size : ",width," ",height)
+
+
+        window = Window(capture=capture,width=width, height=height, caption='Pyglet')
+        pyglet.clock.schedule(update)
+        pyglet.app.run()
 
 
 if __name__ == '__main__':
