@@ -172,7 +172,6 @@ class Window(pyglet.window.Window):
 
         kp_frame, des_frame = orb.detectAndCompute(frame, None)
 
-        counter = 0
         for data in self.data:
             # match frame descriptors with model descriptors
             matches = bf.match(data['reference_des'], des_frame)
@@ -183,8 +182,6 @@ class Window(pyglet.window.Window):
             if len(matches) > MIN_MATCHES and len(matches) > len(suitor_matches):
                 suitor = data
                 suitor_matches = matches
-                
-            counter = counter + 1
 
         if suitor != None:
             matches = suitor_matches
