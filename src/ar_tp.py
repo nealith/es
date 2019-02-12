@@ -89,19 +89,26 @@ class Window(pyglet.window.Window):
 
         # matrix of camera parameters (made up but works quite well for me)
         self.camera_parameters = np.array([[800, 0, 320], [0, 800, 240], [0, 0, 1]])
+        
+        orb = cv2.ORB_create()
 
         dir_name = os.getcwd()
-        with open('data.csv') as csvfile:
+        with open('../data.csv') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                self.data.append({'reference':cv2.imread(os.path.join(dir_name, row['reference']), 0),'reference_name':row['reference'],'model':pywavefront.Wavefront(row['model']),'model_name':row['model']})
+               
+                tmp_data = {'reference_kp':None,'reference_des':None,'reference':cv2.imread(os.path.join(dir_name, row['reference']), 0),'reference_name':row['reference'],'model':pywavefront.Wavefront(row['model']),'model_name':row['model']}
+                kp, des = orb.detectAndCompute(tmp_data['reference'],None)
+                tmp_data['reference_des'] = des
+                tmp_data['reference_kp'] = kp
+                self.data.append(tmp_data)
 
         self.sprite = None
 
         self.rvec = []
         self.tvec = []
         self.model = None
-
+        
     def on_draw(self):
         #self.get_capture()
 
@@ -165,13 +172,10 @@ class Window(pyglet.window.Window):
 
         kp_frame, des_frame = orb.detectAndCompute(frame, None)
 
+        counter = 0
         for data in self.data:
-            # Compute model keypoints and its descriptors
-            kp_model, des_model = orb.detectAndCompute(data['reference'], None)
-
-
             # match frame descriptors with model descriptors
-            matches = bf.match(des_model, des_frame)
+            matches = bf.match(data['reference_des'], des_frame)
             # sort them in the order of their distance
             # the lower the distance, the better the match
             matches = sorted(matches, key=lambda x: x.distance)
@@ -179,6 +183,8 @@ class Window(pyglet.window.Window):
             if len(matches) > MIN_MATCHES and len(matches) > len(suitor_matches):
                 suitor = data
                 suitor_matches = matches
+                
+            counter = counter + 1
 
         if suitor != None:
             matches = suitor_matches
@@ -187,7 +193,7 @@ class Window(pyglet.window.Window):
 
             try:
 
-                src_pts = np.float32([kp_model[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+                src_pts = np.float32([data['reference_kp'][m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
                 dst_pts = np.float32([kp_frame[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
                 # compute Homography
                 homography, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
@@ -205,7 +211,7 @@ class Window(pyglet.window.Window):
                 retval, self.rvec, self.tvec = cv2.solvePnP(Dpts,dst,self.camera_parameters,None)
 
                 #print(suitor['reference_name'])
-                print(self.rvec,'--', self.tvec)
+                #print(self.rvec,'--', self.tvec)
 
             except:
                 pass
