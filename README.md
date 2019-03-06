@@ -1,6 +1,7 @@
 # This is a AR student project
 
 The project attempt to show a 3D tanks over a matching stats card from the miniatures game *Tanks*
+Our work is based on [a tutoral from Juan Gallostra Acín](https://bitesofcode.wordpress.com/2017/09/12/augmented-reality-with-python-and-opencv-part-1/)
 
 # Get started
 
