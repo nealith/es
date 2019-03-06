@@ -4,6 +4,8 @@ The project attempt to show a 3D tanks over a matching stats card from the minia
 
 # Get started
 
+You need to install OpenCV (version > 3)  with python API first
+
 ``` bash
 # pip install PyWavefront pyglet pillow
 $ clone https://github.com/nealith/es.git
