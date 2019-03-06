@@ -40,33 +40,6 @@ def cv2glet(img):
 
 lightfv = ctypes.c_float * 4
 
-def projection_matrix(camera_parameters, homography):
-    """
-    From the camera calibration matrix and the estimated homography
-    compute the 3D projection matrix
-    """
-    # Compute rotation along the x and y axis as well as the translation
-    homography = homography * (-1)
-    rot_and_transl = np.dot(np.linalg.inv(camera_parameters), homography)
-    col_1 = rot_and_transl[:, 0]
-    col_2 = rot_and_transl[:, 1]
-    col_3 = rot_and_transl[:, 2]
-    # normalise vectors
-    l = math.sqrt(np.linalg.norm(col_1, 2) * np.linalg.norm(col_2, 2))
-    rot_1 = col_1 / l
-    rot_2 = col_2 / l
-    translation = col_3 / l
-    # compute the orthonormal basis
-    c = rot_1 + rot_2
-    p = np.cross(rot_1, rot_2)
-    d = np.cross(c, p)
-    rot_1 = np.dot(c / np.linalg.norm(c, 2) + d / np.linalg.norm(d, 2), 1 / math.sqrt(2))
-    rot_2 = np.dot(c / np.linalg.norm(c, 2) - d / np.linalg.norm(d, 2), 1 / math.sqrt(2))
-    rot_3 = np.cross(rot_1, rot_2)
-    # finally, compute the 3D projection matrix from the model to the current frame
-    projection = np.stack((rot_1, rot_2, rot_3, translation)).T
-    return np.dot(camera_parameters, projection)
-
 # Our program class based on pyglet window class
 class Window(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
@@ -91,7 +64,6 @@ class Window(pyglet.window.Window):
         #    print ("size : ",self.width," ",self.height)
 
         self.data = []
-        self.projection_matrix = None
 
         # matrix of camera parameters (made up but works quite well for me)
         self.camera_parameters = np.array([[800, 0, self.width/2.0], [0, 800, self.height/2.0], [0, 0, 1]])
@@ -151,12 +123,12 @@ class Window(pyglet.window.Window):
             glEnable(GL_LIGHTING)
 
             if len(self.tvec):
-                glTranslated(self.tvec[0]/100.0, self.tvec[1]/100.0, -self.tvec[2]/100.0)
+                glTranslated(self.tvec[0]/100, self.tvec[1]/100, -self.tvec[2]/100)
 
             if len(self.rvec):
-                glRotatef(-self.rvec[0]*100, 0.0, 1.0, 0.0)
-                glRotatef(-self.rvec[1]*100, 1.0, 0.0, 0.0)
-                glRotatef(-self.rvec[2]*100, 0.0, 0.0, 1.0)
+                glRotatef(self.rvec[0]*100, 0.0, 1.0, 0.0)
+                glRotatef(self.rvec[1]*100, 1.0, 0.0, 0.0)
+                glRotatef(self.rvec[2]*100, 0.0, 0.0, 1.0)
 
             global visualization
             visualization.draw(self.model)
@@ -205,44 +177,35 @@ class Window(pyglet.window.Window):
                 src_pts = np.float32([data['reference_kp'][m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
                 dst_pts = np.float32([kp_frame[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
                 # compute Homography
-                homography, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-                #########
+                homography, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC)
+
+                v,homography_inv = cv2.invert(homography)
+
+                test_src_pts = cv2.perspectiveTransform(dst_pts, homography_inv)
+                print("test",test_src_pts)
+                print("src",src_pts)
+  
+
+
+
                 #if args.rectangle:
                     # Draw a rectangle that marks the found model in the frame
                 h, w = suitor['reference'].shape
-                pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
+                pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0], [23,260], [23,370], [260,370], [260,260], [22,48], [22,164], [262,164], [262,48], [24,170], [24,186], [264,186], [264,170] ]).reshape(-1, 1, 2)
                     # project corners into frame
                 dst = cv2.perspectiveTransform(pts, homography)
 
-                #print(dst)
-
-                AB = [dst[0][0][0]-dst[1][0][0],dst[0][0][1]-dst[1][0][1]]
-                CD = [dst[2][0][0]-dst[3][0][0],dst[2][0][1]-dst[3][0][1]]
-
-                AD = [dst[0][0][0]-dst[3][0][0],dst[0][0][1]-dst[3][0][1]]
-                BC = [dst[1][0][0]-dst[2][0][0],dst[1][0][1]-dst[2][0][1]]
-
-                ABl = math.sqrt(AB[0]*AB[0]+AB[1]*AB[1])
-                CDl = math.sqrt(CD[0]*CD[0]+CD[1]*CD[1])
-                ADl = math.sqrt(AD[0]*AD[0]+AD[1]*AD[1])
-                BCl = math.sqrt(BC[0]*BC[0]+BC[1]*BC[1])
-
-
-                print(AB,'_____',CD)
-
-                frame = cv2.polylines(frame, [np.int32(dst)], True, 255, 3, cv2.LINE_AA)
-
-                tol = 1.0
-
-                #if AB[0] >= CD[0] - tol and AB[0] <= CD[0] + tol and AB[1] >= CD[1] - tol and AB[1] <= CD[1] + tol and AD[0] >= BC[0] - tol and AD[0] <= BC[0] + tol and AD[1] >= BC[1] - tol and AD[1] <= BC[1] + tol:
-                #    if ABl >= CDl - tol/2.0 and ABl <= CDl + tol/2.0 and ADl >= BCl - tol/2.0 and ADl <= BCl + tol/2.0:
+                frame = cv2.polylines(frame, [np.int32(dst)[0:3]], True, 255, 3, cv2.LINE_AA)
+                frame = cv2.polylines(frame, [np.int32(dst[4:7])], True, 255, 3, cv2.LINE_AA)
+                frame = cv2.polylines(frame, [np.int32(dst[8:11])], True, 255, 3, cv2.LINE_AA)
+                frame = cv2.polylines(frame, [np.int32(dst[12:15])], True, 255, 3, cv2.LINE_AA)
 
 
                 self.model = suitor['model']
 
 
 
-                Dpts= np.float32([[0,0,0],[0,h-1,0],[w-1,h-1,0],[w-1,0,0]]);
+                Dpts= np.float32([[0,0,0],[0,h-1,0],[w-1,h-1,0],[w-1,0,0],[23,260,0], [23,370,0], [260,370,0], [260,260,0], [22,48,0], [22,164,0], [262,164,0], [262,48,0], [24,170,0], [24,186,0], [264,186,0], [264,170,0]]);
 
                 retval, self.rvec, self.tvec = cv2.solvePnP(Dpts,dst,self.camera_parameters,None)
 
