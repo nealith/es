@@ -16,6 +16,11 @@ $ python ar_tp.py
 
 You need to print cards from the folder *references*, can work in grey level
 
-# Satus
+# Status
 
 The process is unstable, probably due to the interests points extraction step. 2 Tanks avaibles : Cromwell and T34/85
+
+# Models
+
+- Cromwell : [printable_models](https://free3d.com/3d-model/wwii-tank-uk-cromwell-v1--490653.html)
+- T34/85 : *don't remember the source*
