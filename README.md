@@ -1,6 +1,6 @@
-# This a AR student project
+# This is a AR student project
 
-The project attempt to show a 3D tanks over a matching stats card from the miniatures  game *Tanks*
+The project attempt to show a 3D tanks over a matching stats card from the miniatures game *Tanks*
 
 # Get started
 
@@ -17,4 +17,4 @@ You need to print cards from the folder *references*, can work in grey level
 
 # Satus
 
-The process is unstable, probably due to the interests points extraction. 2 Tansk avaibles : Cromwell and T34/85
+The process is unstable, probably due to the interests points extraction step. 2 Tanks avaibles : Cromwell and T34/85
