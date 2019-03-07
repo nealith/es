@@ -191,21 +191,18 @@ class Window(pyglet.window.Window):
                 #if args.rectangle:
                     # Draw a rectangle that marks the found model in the frame
                 h, w = suitor['reference'].shape
-                pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0], [23,260], [23,370], [260,370], [260,260], [22,48], [22,164], [262,164], [262,48], [24,170], [24,186], [264,186], [264,170] ]).reshape(-1, 1, 2)
+                pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
                     # project corners into frame
                 dst = cv2.perspectiveTransform(pts, homography)
 
-                frame = cv2.polylines(frame, [np.int32(dst)[0:3]], True, 255, 3, cv2.LINE_AA)
-                frame = cv2.polylines(frame, [np.int32(dst[4:7])], True, 255, 3, cv2.LINE_AA)
-                frame = cv2.polylines(frame, [np.int32(dst[8:11])], True, 255, 3, cv2.LINE_AA)
-                frame = cv2.polylines(frame, [np.int32(dst[12:15])], True, 255, 3, cv2.LINE_AA)
+                frame = cv2.polylines(frame, [np.int32(dst)], True, 255, 3, cv2.LINE_AA)
 
 
                 self.model = suitor['model']
 
 
 
-                Dpts= np.float32([[0,0,0],[0,h-1,0],[w-1,h-1,0],[w-1,0,0],[23,260,0], [23,370,0], [260,370,0], [260,260,0], [22,48,0], [22,164,0], [262,164,0], [262,48,0], [24,170,0], [24,186,0], [264,186,0], [264,170,0]]);
+                Dpts= np.float32([[0,0,0],[0,h-1,0],[w-1,h-1,0],[w-1,0,0]]);
 
                 retval, self.rvec, self.tvec = cv2.solvePnP(Dpts,dst,self.camera_parameters,None)
 
